@@ -21,7 +21,7 @@ echo "\__  \  / ____/  |  \__  \  /     \_/ __ \   __\__  \  "
 echo " / __ \< <_|  |  |  // __ \|  Y Y  \  ___/|  |  / __ \_"
 echo "(____  /\__   |____/(____  /__|_|  /\___  >__| (____  /"
 echo "     \/    |__|          \/      \/     \/          \/ "
-echo "            [ version 0.2.0 - base install ]"
+echo "            [ version 0.2.0-rc7 - base install ]"
 echo ""
 echo "                 OBLIGATORY WARNING:"
 echo ""
@@ -62,8 +62,8 @@ DEST=${DEST:-$SRC}
 echo "Installing dependencies via apt..."
 
 echo "Please choose:"
-echo "  a) Debian 9 apt repository"
-echo "  b) Ubuntu 18 apt repository"
+echo "  a) Debian 9/10 apt repository"
+echo "  b) Ubuntu 18/19 apt repository"
 REPLY=
 while ! [[ $REPLY =~ ^[aAbB]$ ]]
 do
@@ -84,8 +84,8 @@ else
 fi
 
 # add postgresql official repository
-sudo apt-get install -y wget ca-certificates
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+apt-get install -y gnupg wget ca-certificates
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
 
 # update
@@ -93,13 +93,30 @@ apt-get update -y
 
 # install required packages
 DEBIAN_FRONTEND=nointeractive \
-	apt-get install -y postgresql-11 postgresql-11-python-multicorn \
-	postgresql-server-dev-11 postgresql-plpython-11 python-pip \
-	python-werkzeug python-psycopg2 nginx sudo sendmail \
-	fuse dnsutils \
-	libssl-dev libpcre3 libpcre3-dev \
+	apt-get install -y \
+	build-essential \
+	dnsutils \
+	fuse \
+	git \
+	libssl-dev \
+	libpcre3 \
+	libpcre3-dev \
 	llvm-6.0 \
-	git vim tmux sudo
+	nginx \
+	postgresql-11 \
+	postgresql-11-pgtap \
+	postgresql-11-python-multicorn \
+	postgresql-plpython-11 \
+	postgresql-server-dev-11 \
+	python-dev \
+	python-pip \
+	python-psycopg2 \
+	python-werkzeug \
+	sendmail \
+	sendmail-bin \
+	sudo \
+	tmux \
+	vim
 
 
 
@@ -134,7 +151,10 @@ ldconfig
 
 echo "Installing core python packages..."
 
-pip install requests fusepy
+pip install --upgrade setuptools
+pip install --upgrade wheel
+pip install requests
+pip install fusepy
 
 # filesystem_fdw
 cd $SRC/src/py-package/filesystem_fdw

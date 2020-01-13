@@ -546,7 +546,7 @@ $$ language plpgsql;
 
 
 -- checkout can only be run by superusers because it disables triggers, as described here: http://blog.endpoint.com/2012/10/postgres-system-triggers-error.html
-create or replace function checkout (in commit_id uuid) returns void as $$
+create or replace function checkout (in commit_id uuid, in comment text default null) returns void as $$
     declare
         commit_row record;
         bundle_name text;
@@ -686,11 +686,11 @@ create or replace function checkout (in commit_id uuid) returns void as $$
                 || ' enable trigger all';
         end loop;
 
-        -- point head_commit_id to this commit
-        update bundle.bundle set head_commit_id = commit_id where id in (select bundle_id from bundle.commit c where c.id = commit_id);
+        -- point head_commit_id and checkout_commit_id to this commit
+        update bundle.bundle set head_commit_id = commit_id where id in (select bundle_id from bundle.commit c where c.id = commit_id); -- TODO: now that checkout_commit_id exists, do we still do this?
+        update bundle.bundle set checkout_commit_id = commit_id where id in (select bundle_id from bundle.commit c where c.id = commit_id);
 
         return;
-
     end;
 $$ language plpgsql;
 
@@ -773,6 +773,37 @@ create or replace function bundle.commit_delete(in _commit_id uuid) returns void
     delete from bundle.commit c where c.id = _commit_id;
 $$ language sql;
 
+
+------------------------------------------------------------------------------
+-- CHECKOUT DELETE
+------------------------------------------------------------------------------
+
+/*
+ * deletes the rows in the database that are tracked by the specified commit
+ * (usually bundle.head_commit_id).
+ * TODO: this could be optimized to one delete per relation
+ */
+create or replace function bundle.checkout_delete(in _bundle_id uuid, in _commit_id uuid) returns void as $$
+declare
+        temprow record;
+begin
+	for temprow in
+		select rr.* from bundle.bundle b
+			join bundle.commit c on c.bundle_id = b.id
+			join bundle.rowset r on r.id = c.rowset_id
+			join bundle.rowset_row rr on rr.rowset_id = r.id
+		where b.id = _bundle_id and c.id = _commit_id
+	loop
+		execute format ('delete from %I.%I where %I = %L',
+			((((temprow.row_id).pk_column_id).relation_id).schema_id).name,
+			(((temprow.row_id).pk_column_id).relation_id).name,
+			((temprow.row_id).pk_column_id).name,
+			(temprow.row_id).pk_value);
+	end loop;
+
+	update bundle.bundle set checkout_commit_id = null where id = _bundle_id;
+end;
+$$ language plpgsql;
 
 ------------------------------------------------------------------------------
 -- STATUS FUNCTIONS
